@@ -9,8 +9,10 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "quill": "^2.0.3",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "react-quill": "^2.0.0",
     "reactflow": "^11.11.4"
   },
   "devDependencies": {

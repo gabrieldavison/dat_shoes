@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useState, useMemo } from "react";
 import ReactFlow, {
   Node as FlowNode,
   Edge as FlowEdge,
@@ -13,40 +13,43 @@ import ReactFlow, {
   NodeChange,
   EdgeChange,
 } from "reactflow";
+import ReactQuill from "react-quill";
+import "react-quill/dist/quill.snow.css";
 import "reactflow/dist/style.css";
 import "./FlowChart.css";
+import CustomNode, { CustomNodeData } from "./CustomNode";
 
 // Convert initial data to React Flow format
-const initialNodes: FlowNode[] = [
+const initialNodes: FlowNode<CustomNodeData>[] = [
   {
     id: "1",
-    type: "default",
+    type: "customNode",
     position: { x: 100, y: 50 },
-    data: { label: "Start" },
+    data: { title: "Start", body: "Begin the process" },
   },
   {
     id: "2",
-    type: "default",
-    position: { x: 100, y: 150 },
-    data: { label: "Process 1" },
+    type: "customNode",
+    position: { x: 100, y: 180 },
+    data: { title: "Process 1", body: "First processing step" },
   },
   {
     id: "3",
-    type: "default",
-    position: { x: 300, y: 150 },
-    data: { label: "Process 2" },
+    type: "customNode",
+    position: { x: 300, y: 180 },
+    data: { title: "Process 2", body: "Second processing step" },
   },
   {
     id: "4",
-    type: "default",
-    position: { x: 200, y: 250 },
-    data: { label: "Decision" },
+    type: "customNode",
+    position: { x: 200, y: 310 },
+    data: { title: "Decision", body: "Make a choice" },
   },
   {
     id: "5",
-    type: "default",
-    position: { x: 200, y: 350 },
-    data: { label: "End" },
+    type: "customNode",
+    position: { x: 200, y: 440 },
+    data: { title: "End", body: "Process complete" },
   },
 ];
 
@@ -64,7 +67,11 @@ const FlowChart: React.FC = () => {
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
   const [selectedEdge, setSelectedEdge] = useState<string | null>(null);
   const [editingNode, setEditingNode] = useState<string | null>(null);
-  const [editLabel, setEditLabel] = useState("");
+  const [editTitle, setEditTitle] = useState("");
+  const [editBody, setEditBody] = useState("");
+
+  // Define custom node types
+  const nodeTypes = useMemo(() => ({ customNode: CustomNode }), []);
 
   // Handle connecting nodes
   const onConnect = useCallback(
@@ -75,11 +82,11 @@ const FlowChart: React.FC = () => {
 
   // Add a new node
   const addNode = useCallback(() => {
-    const newNode: FlowNode = {
+    const newNode: FlowNode<CustomNodeData> = {
       id: `${Date.now()}`,
-      type: "default",
+      type: "customNode",
       position: { x: Math.random() * 400, y: Math.random() * 400 },
-      data: { label: "New Node" },
+      data: { title: "New Node", body: "Add description here" },
     };
     setNodes((nds) => [...nds, newNode]);
   }, [setNodes]);
@@ -105,31 +112,37 @@ const FlowChart: React.FC = () => {
     }
   }, [selectedEdge, setEdges]);
 
-  // Start editing node label
-  const startEditNode = useCallback((nodeId: string, currentLabel: string) => {
-    setEditingNode(nodeId);
-    setEditLabel(currentLabel);
-  }, []);
+  // Start editing node
+  const startEditNode = useCallback(
+    (nodeId: string, currentTitle: string, currentBody: string) => {
+      setEditingNode(nodeId);
+      setEditTitle(currentTitle);
+      setEditBody(currentBody);
+    },
+    []
+  );
 
-  // Save edited node label
-  const saveNodeLabel = useCallback(() => {
+  // Save edited node
+  const saveNode = useCallback(() => {
     if (editingNode) {
       setNodes((nds) =>
         nds.map((node) =>
           node.id === editingNode
-            ? { ...node, data: { ...node.data, label: editLabel } }
+            ? { ...node, data: { title: editTitle, body: editBody } }
             : node
         )
       );
       setEditingNode(null);
-      setEditLabel("");
+      setEditTitle("");
+      setEditBody("");
     }
-  }, [editingNode, editLabel, setNodes]);
+  }, [editingNode, editTitle, editBody, setNodes]);
 
   // Cancel editing
   const cancelEdit = useCallback(() => {
     setEditingNode(null);
-    setEditLabel("");
+    setEditTitle("");
+    setEditBody("");
   }, []);
 
   // Handle node selection
@@ -152,8 +165,8 @@ const FlowChart: React.FC = () => {
 
   // Handle double-click to edit node
   const onNodeDoubleClick = useCallback(
-    (_event: React.MouseEvent, node: FlowNode) => {
-      startEditNode(node.id, node.data.label as string);
+    (_event: React.MouseEvent, node: FlowNode<CustomNodeData>) => {
+      startEditNode(node.id, node.data.title, node.data.body);
     },
     [startEditNode]
   );
@@ -203,19 +216,42 @@ const FlowChart: React.FC = () => {
       {editingNode && (
         <div className="modal-overlay">
           <div className="modal">
-            <h3>Edit Node Label</h3>
+            <h3>Edit Node</h3>
+            <label htmlFor="node-title">Title</label>
             <input
+              id="node-title"
               type="text"
-              value={editLabel}
-              onChange={(e) => setEditLabel(e.target.value)}
+              value={editTitle}
+              onChange={(e) => setEditTitle(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter") saveNodeLabel();
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  saveNode();
+                }
                 if (e.key === "Escape") cancelEdit();
               }}
               autoFocus
+              placeholder="Enter title"
+            />
+            <label htmlFor="node-body">Body</label>
+            <ReactQuill
+              theme="snow"
+              value={editBody}
+              onChange={setEditBody}
+              placeholder="Enter description"
+              modules={{
+                toolbar: [
+                  [{ header: [1, 2, 3, false] }],
+                  ["bold", "italic", "underline", "strike"],
+                  [{ list: "ordered" }, { list: "bullet" }],
+                  [{ color: [] }, { background: [] }],
+                  ["link"],
+                  ["clean"],
+                ],
+              }}
             />
             <div className="modal-actions">
-              <button onClick={saveNodeLabel} className="btn btn-primary">
+              <button onClick={saveNode} className="btn btn-primary">
                 Save
               </button>
               <button onClick={cancelEdit} className="btn btn-secondary">
@@ -238,6 +274,7 @@ const FlowChart: React.FC = () => {
           onEdgeClick={onEdgeClick}
           onNodeDoubleClick={onNodeDoubleClick}
           onPaneClick={onPaneClick}
+          nodeTypes={nodeTypes}
           fitView
           nodesDraggable={true}
           nodesConnectable={true}

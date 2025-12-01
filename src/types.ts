@@ -1,7 +1,8 @@
 export interface Node {
   x: number;
   y: number;
-  text: string;
+  title: string;
+  body: string;
 }
 
 export interface Edge {
