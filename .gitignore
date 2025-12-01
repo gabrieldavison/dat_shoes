@@ -32,5 +32,4 @@ lerna-debug.log*
 
 # Cloudflare
 .wrangler
-wrangler.toml
 .dev.vars

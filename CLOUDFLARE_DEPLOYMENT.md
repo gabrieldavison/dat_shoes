@@ -48,6 +48,8 @@ Add your Supabase environment variables:
 
 ## Method 2: Deploy via Wrangler CLI
 
+This project includes a [`wrangler.jsonc`](wrangler.jsonc) configuration file for easy deployment.
+
 ### Step 1: Install Wrangler
 
 ```bash
@@ -69,10 +71,15 @@ npm run build
 ### Step 4: Deploy
 
 ```bash
-wrangler pages deploy dist --project-name=mr-flow-chart
+npx wrangler deploy
 ```
 
-**Note**: Replace `mr-flow-chart` with your desired project name.
+The deployment uses the [`wrangler.jsonc`](wrangler.jsonc) configuration which specifies:
+- Project name: `mr-flow-chart`
+- Assets directory: `./dist`
+- Compatibility date: `2025-12-01`
+
+**Note**: You can modify the project name in [`wrangler.jsonc`](wrangler.jsonc) if desired.
 
 ### Step 5: Set Environment Variables
 
