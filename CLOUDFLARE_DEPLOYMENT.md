@@ -29,16 +29,19 @@ Use the following build configuration:
 - **Build output directory**: `dist`
 - **Root directory**: `/` (leave empty if project is at root)
 
-### Step 3: Environment Variables
+### Step 3: Environment Variables (Build-time)
 
-Add your Supabase environment variables:
+**Important**: For static Vite applications, environment variables are embedded during build time, not at runtime.
 
-1. Click **Add environment variables**
-2. Add the following variables:
+Add your Supabase environment variables as **build environment variables**:
+
+1. In the build configuration page, scroll to **Environment variables (advanced)**
+2. Click **Add variable**
+3. Add the following variables (these are used during the build process):
    - `VITE_SUPABASE_URL`: Your Supabase project URL
    - `VITE_SUPABASE_ANON_KEY`: Your Supabase anonymous key
 
-**Important**: These should match the variables in your `.env` file.
+**Note**: These `VITE_` prefixed variables are build-time variables that Vite embeds into your static files during compilation. They should match the variables in your local `.env` file.
 
 ### Step 4: Deploy
 
@@ -81,13 +84,23 @@ The deployment uses the [`wrangler.jsonc`](wrangler.jsonc) configuration which s
 
 **Note**: You can modify the project name in [`wrangler.jsonc`](wrangler.jsonc) if desired.
 
-### Step 5: Set Environment Variables
+### Step 5: Set Environment Variables (for future builds)
 
-After deploying, set your environment variables via the dashboard:
+**Important**: Since Wrangler CLI deployment only uploads already-built static files, environment variables cannot be added after deployment for static-only sites.
 
-1. Go to your project in the Cloudflare Pages dashboard
-2. Navigate to **Settings** > **Environment variables**
-3. Add your Supabase variables for both Production and Preview environments
+For future deployments, you have two options:
+
+**Option A: Use local `.env` file (simpler but less secure)**
+1. Keep your `.env` file with `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`
+2. Build locally with `npm run build` (variables are embedded during build)
+3. Deploy the built files with `npx wrangler deploy`
+
+**Option B: Set environment variables in Cloudflare (recommended for production)**
+1. Switch to Git-based deployment (Method 1)
+2. Configure build environment variables in the Cloudflare Pages dashboard
+3. Let Cloudflare build and deploy automatically
+
+**Note**: For static sites, environment variables are baked into the JavaScript bundle at build time, not available at runtime.
 
 ## Automatic Deployments
 
@@ -107,14 +120,22 @@ Once connected via Git (Method 1), Cloudflare Pages will automatically:
 4. Follow the DNS configuration instructions
 5. Wait for DNS propagation (usually takes a few minutes)
 
-## Environment-Specific Variables
+## Environment-Specific Variables (Git-based deployments only)
 
-You can set different environment variables for:
+When using Git-based deployment (Method 1), you can set different **build environment variables** for:
 
-- **Production**: Used for your main branch deployments
-- **Preview**: Used for pull request and branch preview deployments
+- **Production**: Used when building your main branch deployments
+- **Preview**: Used when building pull request and branch preview deployments
+
+To set environment-specific variables:
+
+1. Go to **Settings** > **Environment variables**
+2. Add variables separately for **Production** and **Preview** environments
+3. Each will be used during the respective build process
 
 This is useful for separate Supabase projects for development and production.
+
+**Important**: These are build-time variables, not runtime variables. They are embedded into your static files during the build process.
 
 ## Build Configuration Details
 
@@ -146,7 +167,9 @@ Cloudflare Pages automatically caches `node_modules` to speed up builds. To clea
 
 **Environment Variables:**
 - Ensure variables are prefixed with `VITE_` for Vite projects
-- Verify variables are set in Cloudflare Pages dashboard
+- Verify variables are set as **build environment variables** (not runtime variables)
+- Remember: For static sites, these are embedded at build time, not available at runtime
+- If using CLI deployment, ensure `.env` file exists locally during build
 
 ### Runtime Issues
 
