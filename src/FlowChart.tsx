@@ -18,6 +18,12 @@ import "react-quill/dist/quill.snow.css";
 import "reactflow/dist/style.css";
 import "./FlowChart.css";
 import CustomNode, { CustomNodeData } from "./CustomNode";
+import { useAuth } from "./lib/AuthContext";
+import {
+  saveFlowchart,
+  loadFlowchart,
+  subscribeToFlowchart,
+} from "./lib/flowchartService";
 
 // Convert initial data to React Flow format
 const initialNodes: FlowNode<CustomNodeData>[] = [
@@ -70,6 +76,7 @@ const initialEdges: FlowEdge[] = [
 ];
 
 const FlowChart: React.FC = () => {
+  const { isAdmin, signOut } = useAuth();
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
@@ -78,9 +85,69 @@ const FlowChart: React.FC = () => {
   const [editDate, setEditDate] = useState("");
   const [editBody, setEditBody] = useState("");
   const [editCountry, setEditCountry] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | "error">(
+    "saved"
+  );
 
   // Define custom node types
   const nodeTypes = useMemo(() => ({ customNode: CustomNode }), []);
+
+  // Load flowchart from database on mount
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const data = await loadFlowchart();
+        if (data) {
+          setNodes(data.nodes);
+          setEdges(data.edges);
+        }
+      } catch (error) {
+        console.error("Error loading flowchart:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+
+    // Subscribe to real-time changes
+    const unsubscribe = subscribeToFlowchart((data) => {
+      setNodes(data.nodes);
+      setEdges(data.edges);
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [setNodes, setEdges]);
+
+  // Auto-save changes to database (admins only)
+  useEffect(() => {
+    if (!isAdmin || loading) return;
+
+    const timeoutId = setTimeout(async () => {
+      try {
+        setSaveStatus("saving");
+        await saveFlowchart({ nodes, edges });
+        setSaveStatus("saved");
+      } catch (error) {
+        console.error("Error saving flowchart:", error);
+        setSaveStatus("error");
+      }
+    }, 1000); // Debounce for 1 second
+
+    return () => clearTimeout(timeoutId);
+  }, [nodes, edges, isAdmin, loading]);
+
+  // Handle logout
+  const handleLogout = async () => {
+    try {
+      await signOut();
+    } catch (error) {
+      console.error("Error signing out:", error);
+    }
+  };
 
   // Handle connecting nodes
   const onConnect = useCallback(
@@ -204,43 +271,77 @@ const FlowChart: React.FC = () => {
     setSelectedEdge(null);
   }, []);
 
+  if (loading) {
+    return (
+      <div className="flowchart-container">
+        <div className="loading-message">Loading flowchart...</div>
+      </div>
+    );
+  }
+
   return (
     <div className="flowchart-container">
-      <h1>Flow Chart Editor</h1>
-
-      {/* Toolbar */}
-      <div className="toolbar">
-        <button onClick={addNode} className="btn btn-primary">
-          ➕ Add Node
-        </button>
-        <button
-          onClick={deleteNode}
-          className="btn btn-danger"
-          disabled={!selectedNode}
-        >
-          🗑️ Delete Node
-        </button>
-        <button
-          onClick={deleteEdge}
-          className="btn btn-danger"
-          disabled={!selectedEdge}
-        >
-          ✂️ Delete Edge
-        </button>
-        <div className="toolbar-info">
-          {selectedNode && <span>Node selected: {selectedNode}</span>}
-          {selectedEdge && <span>Edge selected: {selectedEdge}</span>}
-          {!selectedNode && !selectedEdge && (
-            <span>
-              Click to select | Double-click node to edit | Drag from node to
-              connect
-            </span>
+      <div className="header">
+        <h1>Flow Chart {isAdmin ? "Editor" : "Viewer"}</h1>
+        <div className="header-actions">
+          {saveStatus === "saving" && isAdmin && (
+            <span className="save-status saving">Saving...</span>
           )}
+          {saveStatus === "saved" && isAdmin && (
+            <span className="save-status saved">✓ Saved</span>
+          )}
+          {saveStatus === "error" && isAdmin && (
+            <span className="save-status error">⚠ Error saving</span>
+          )}
+          {!isAdmin && <span className="view-mode-badge">👁️ View Only</span>}
+          <button onClick={handleLogout} className="btn btn-secondary">
+            Logout
+          </button>
         </div>
       </div>
 
-      {/* Edit Node Modal */}
-      {editingNode && (
+      {/* Toolbar - only show edit buttons for admins */}
+      {isAdmin && (
+        <div className="toolbar">
+          <button onClick={addNode} className="btn btn-primary">
+            ➕ Add Node
+          </button>
+          <button
+            onClick={deleteNode}
+            className="btn btn-danger"
+            disabled={!selectedNode}
+          >
+            🗑️ Delete Node
+          </button>
+          <button
+            onClick={deleteEdge}
+            className="btn btn-danger"
+            disabled={!selectedEdge}
+          >
+            ✂️ Delete Edge
+          </button>
+          <div className="toolbar-info">
+            {selectedNode && <span>Node selected: {selectedNode}</span>}
+            {selectedEdge && <span>Edge selected: {selectedEdge}</span>}
+            {!selectedNode && !selectedEdge && (
+              <span>
+                Click to select | Double-click node to edit | Drag from node to
+                connect
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {!isAdmin && (
+        <div className="view-mode-notice">
+          You are viewing this flowchart in read-only mode. Admin access is
+          required to make changes.
+        </div>
+      )}
+
+      {/* Edit Node Modal - only for admins */}
+      {editingNode && isAdmin && (
         <div className="modal-overlay" onClick={closeModal}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
@@ -323,12 +424,12 @@ const FlowChart: React.FC = () => {
           onConnect={onConnect}
           onNodeClick={onNodeClick}
           onEdgeClick={onEdgeClick}
-          onNodeDoubleClick={onNodeDoubleClick}
+          onNodeDoubleClick={isAdmin ? onNodeDoubleClick : undefined}
           onPaneClick={onPaneClick}
           nodeTypes={nodeTypes}
           fitView
-          nodesDraggable={true}
-          nodesConnectable={true}
+          nodesDraggable={isAdmin}
+          nodesConnectable={isAdmin}
           elementsSelectable={true}
         >
           <Background variant={BackgroundVariant.Dots} gap={12} size={1} />
