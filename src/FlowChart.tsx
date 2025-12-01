@@ -1,4 +1,4 @@
-import React, { useCallback, useState, useMemo } from "react";
+import React, { useCallback, useState, useMemo, useEffect } from "react";
 import ReactFlow, {
   Node as FlowNode,
   Edge as FlowEdge,
@@ -130,39 +130,42 @@ const FlowChart: React.FC = () => {
       currentCountry?: string
     ) => {
       setEditingNode(nodeId);
-      setEditDate(currentDate);
+      // Extract year from date string
+      const year = new Date(currentDate).getFullYear().toString();
+      setEditDate(year);
       setEditBody(currentBody);
       setEditCountry(currentCountry || "");
     },
     []
   );
 
-  // Save edited node
-  const saveNode = useCallback(() => {
+  // Autosave changes when editing
+  useEffect(() => {
     if (editingNode) {
-      setNodes((nds) =>
-        nds.map((node) =>
-          node.id === editingNode
-            ? {
-                ...node,
-                data: {
-                  date: editDate,
-                  body: editBody,
-                  ...(editCountry && { country: editCountry }),
-                },
-              }
-            : node
-        )
-      );
-      setEditingNode(null);
-      setEditDate("");
-      setEditBody("");
-      setEditCountry("");
+      const timeoutId = setTimeout(() => {
+        setNodes((nds) =>
+          nds.map((node) =>
+            node.id === editingNode
+              ? {
+                  ...node,
+                  data: {
+                    // Convert year to date string format (YYYY-01-01)
+                    date: `${editDate}-01-01`,
+                    body: editBody,
+                    ...(editCountry && { country: editCountry }),
+                  },
+                }
+              : node
+          )
+        );
+      }, 500); // Debounce for 500ms
+
+      return () => clearTimeout(timeoutId);
     }
   }, [editingNode, editDate, editBody, editCountry, setNodes]);
 
-  // Cancel editing
-  const cancelEdit = useCallback(() => {
+  // Close modal
+  const closeModal = useCallback(() => {
     setEditingNode(null);
     setEditDate("");
     setEditBody("");
@@ -238,56 +241,73 @@ const FlowChart: React.FC = () => {
 
       {/* Edit Node Modal */}
       {editingNode && (
-        <div className="modal-overlay">
-          <div className="modal">
-            <h3>Edit Node</h3>
-            <label htmlFor="node-date">Date</label>
-            <input
-              id="node-date"
-              type="date"
-              value={editDate}
-              onChange={(e) => setEditDate(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Escape") cancelEdit();
-              }}
-              min="1878-01-01"
-              autoFocus
-            />
-            <label htmlFor="node-country">Country (optional)</label>
-            <input
-              id="node-country"
-              type="text"
-              value={editCountry}
-              onChange={(e) => setEditCountry(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Escape") cancelEdit();
-              }}
-              placeholder="Leave empty to inherit from parent"
-            />
-            <label htmlFor="node-body">Body</label>
-            <ReactQuill
-              theme="snow"
-              value={editBody}
-              onChange={setEditBody}
-              placeholder="Enter description"
-              modules={{
-                toolbar: [
-                  [{ header: [1, 2, 3, false] }],
-                  ["bold", "italic", "underline", "strike"],
-                  [{ list: "ordered" }, { list: "bullet" }],
-                  [{ color: [] }, { background: [] }],
-                  ["link"],
-                  ["clean"],
-                ],
-              }}
-            />
-            <div className="modal-actions">
-              <button onClick={saveNode} className="btn btn-primary">
-                Save
+        <div className="modal-overlay" onClick={closeModal}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Edit Node</h3>
+              <button
+                className="modal-close"
+                onClick={closeModal}
+                aria-label="Close"
+              >
+                ✕
               </button>
-              <button onClick={cancelEdit} className="btn btn-secondary">
-                Cancel
-              </button>
+            </div>
+
+            <div className="modal-field">
+              <label htmlFor="node-date">Year</label>
+              <input
+                id="node-date"
+                type="number"
+                value={editDate}
+                onChange={(e) => setEditDate(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") closeModal();
+                }}
+                min="1878"
+                max="2100"
+                step="1"
+                placeholder="e.g., 1945"
+                autoFocus
+              />
+            </div>
+
+            <div className="modal-field">
+              <label htmlFor="node-country">Country (optional)</label>
+              <input
+                id="node-country"
+                type="text"
+                value={editCountry}
+                onChange={(e) => setEditCountry(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") closeModal();
+                }}
+                placeholder="Leave empty to inherit from parent"
+              />
+            </div>
+
+            <div className="modal-field">
+              <label htmlFor="node-body">Description</label>
+              <ReactQuill
+                theme="snow"
+                value={editBody}
+                onChange={setEditBody}
+                placeholder="Enter description"
+                modules={{
+                  toolbar: [
+                    [{ header: [1, 2, 3, false] }],
+                    ["bold", "italic", "underline", "strike"],
+                    [{ list: "ordered" }, { list: "bullet" }],
+                    [{ color: [] }, { background: [] }],
+                    ["link"],
+                    ["clean"],
+                  ],
+                }}
+              />
+            </div>
+
+            <div className="autosave-indicator">
+              <span>✓ Changes saved automatically</span>
             </div>
           </div>
         </div>
