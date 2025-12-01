@@ -88,6 +88,15 @@
   color: #333;
   margin-bottom: 8px;
   line-height: 1.3;
+  text-align: center;
+}
+
+.node-country {
+  font-size: 14px;
+  font-weight: 500;
+  color: #666;
+  margin-bottom: 6px;
+  text-align: center;
 }
 
 .node-body {

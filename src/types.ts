@@ -1,8 +1,9 @@
 export interface Node {
   x: number;
   y: number;
-  title: string;
+  date: string;
   body: string;
+  country?: string;
 }
 
 export interface Edge {

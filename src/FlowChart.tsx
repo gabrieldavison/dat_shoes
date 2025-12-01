@@ -25,31 +25,39 @@ const initialNodes: FlowNode<CustomNodeData>[] = [
     id: "1",
     type: "customNode",
     position: { x: 100, y: 50 },
-    data: { title: "Start", body: "Begin the process" },
+    data: {
+      date: "1878-01-01",
+      body: "Begin the process",
+      country: "United Kingdom",
+    },
   },
   {
     id: "2",
     type: "customNode",
     position: { x: 100, y: 180 },
-    data: { title: "Process 1", body: "First processing step" },
+    data: { date: "1890-06-15", body: "First processing step" },
   },
   {
     id: "3",
     type: "customNode",
     position: { x: 300, y: 180 },
-    data: { title: "Process 2", body: "Second processing step" },
+    data: {
+      date: "1905-03-20",
+      body: "Second processing step",
+      country: "United States",
+    },
   },
   {
     id: "4",
     type: "customNode",
     position: { x: 200, y: 310 },
-    data: { title: "Decision", body: "Make a choice" },
+    data: { date: "1920-12-10", body: "Make a choice" },
   },
   {
     id: "5",
     type: "customNode",
     position: { x: 200, y: 440 },
-    data: { title: "End", body: "Process complete" },
+    data: { date: "1945-05-08", body: "Process complete" },
   },
 ];
 
@@ -67,8 +75,9 @@ const FlowChart: React.FC = () => {
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
   const [selectedEdge, setSelectedEdge] = useState<string | null>(null);
   const [editingNode, setEditingNode] = useState<string | null>(null);
-  const [editTitle, setEditTitle] = useState("");
+  const [editDate, setEditDate] = useState("");
   const [editBody, setEditBody] = useState("");
+  const [editCountry, setEditCountry] = useState("");
 
   // Define custom node types
   const nodeTypes = useMemo(() => ({ customNode: CustomNode }), []);
@@ -86,7 +95,7 @@ const FlowChart: React.FC = () => {
       id: `${Date.now()}`,
       type: "customNode",
       position: { x: Math.random() * 400, y: Math.random() * 400 },
-      data: { title: "New Node", body: "Add description here" },
+      data: { date: "1878-01-01", body: "Add description here" },
     };
     setNodes((nds) => [...nds, newNode]);
   }, [setNodes]);
@@ -114,10 +123,16 @@ const FlowChart: React.FC = () => {
 
   // Start editing node
   const startEditNode = useCallback(
-    (nodeId: string, currentTitle: string, currentBody: string) => {
+    (
+      nodeId: string,
+      currentDate: string,
+      currentBody: string,
+      currentCountry?: string
+    ) => {
       setEditingNode(nodeId);
-      setEditTitle(currentTitle);
+      setEditDate(currentDate);
       setEditBody(currentBody);
+      setEditCountry(currentCountry || "");
     },
     []
   );
@@ -128,21 +143,30 @@ const FlowChart: React.FC = () => {
       setNodes((nds) =>
         nds.map((node) =>
           node.id === editingNode
-            ? { ...node, data: { title: editTitle, body: editBody } }
+            ? {
+                ...node,
+                data: {
+                  date: editDate,
+                  body: editBody,
+                  ...(editCountry && { country: editCountry }),
+                },
+              }
             : node
         )
       );
       setEditingNode(null);
-      setEditTitle("");
+      setEditDate("");
       setEditBody("");
+      setEditCountry("");
     }
-  }, [editingNode, editTitle, editBody, setNodes]);
+  }, [editingNode, editDate, editBody, editCountry, setNodes]);
 
   // Cancel editing
   const cancelEdit = useCallback(() => {
     setEditingNode(null);
-    setEditTitle("");
+    setEditDate("");
     setEditBody("");
+    setEditCountry("");
   }, []);
 
   // Handle node selection
@@ -166,7 +190,7 @@ const FlowChart: React.FC = () => {
   // Handle double-click to edit node
   const onNodeDoubleClick = useCallback(
     (_event: React.MouseEvent, node: FlowNode<CustomNodeData>) => {
-      startEditNode(node.id, node.data.title, node.data.body);
+      startEditNode(node.id, node.data.date, node.data.body, node.data.country);
     },
     [startEditNode]
   );
@@ -217,21 +241,28 @@ const FlowChart: React.FC = () => {
         <div className="modal-overlay">
           <div className="modal">
             <h3>Edit Node</h3>
-            <label htmlFor="node-title">Title</label>
+            <label htmlFor="node-date">Date</label>
             <input
-              id="node-title"
-              type="text"
-              value={editTitle}
-              onChange={(e) => setEditTitle(e.target.value)}
+              id="node-date"
+              type="date"
+              value={editDate}
+              onChange={(e) => setEditDate(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  saveNode();
-                }
                 if (e.key === "Escape") cancelEdit();
               }}
+              min="1878-01-01"
               autoFocus
-              placeholder="Enter title"
+            />
+            <label htmlFor="node-country">Country (optional)</label>
+            <input
+              id="node-country"
+              type="text"
+              value={editCountry}
+              onChange={(e) => setEditCountry(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") cancelEdit();
+              }}
+              placeholder="Leave empty to inherit from parent"
             />
             <label htmlFor="node-body">Body</label>
             <ReactQuill
